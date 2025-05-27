@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Split Expenses</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css" rel="stylesheet" />
+  <style>
+    body { background: #f8f9fa; }
+    .card {
+      border-radius: 10px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+      padding: 15px;
+      font-size: 0.9rem;
+    }
+    .role-badge {
+      font-size: 0.75rem;
+      padding: 3px 6px;
+      border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .payer {
+      background: #d1e7dd;
+      color: #0f5132;
+    }
+    .participant {
+      background: #f8d7da;
+      color: #842029;
+    }
+    .card-title {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .timestamp {
+      font-size: 0.75rem;
+      color: #6c757d;
+    }
+    .btn-pay {
+      font-size: 0.8rem;
+      padding: 4px 10px;
+    }
+    img.payment-preview {
+      max-height: 150px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="container py-4">
+  <h2 class="mb-3 text-center">My Split Expenses</h2>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-3">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'warning' if category == 'warning' else 'info' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Filter Buttons -->
+  <div class="mb-3 text-center">
+    <a href="{{ url_for('split_expense') }}" class="btn btn-outline-dark btn-sm me-2"><i class="ion ion-plus-round"></i> New Split</a>
+    <a href="{{ url_for('my_splits', type='owe') }}" class="btn btn-outline-danger btn-sm me-1 {% if filter_type=='owe' %}active{% endif %}"><i class="ion ion-alert-circled"></i> I Owe</a>
+    <a href="{{ url_for('my_splits', type='paid') }}" class="btn btn-outline-success btn-sm me-1 {% if filter_type=='paid' %}active{% endif %}"><i class="ion ion-checkmark-circled"></i> I Paid</a>
+    <a href="{{ url_for('my_splits') }}" class="btn btn-outline-secondary btn-sm {% if not filter_type %}active{% endif %}"><i class="ion ion-ios-list"></i> All</a>
+  </div>
+
+  <!-- Monthly Summary -->
+  <div class="mb-4 text-center">
+    <small><strong>Monthly Summary:</strong> Owed ₹{{ "%.2f"|format(total_owed) }} | Paid ₹{{ "%.2f"|format(total_paid) }}</small>
+  </div>
+
+  {% if splits %}
+    <div class="row g-3">
+      {% for s in splits %}
+        <div class="col-md-4">
+          <div class="card">
+            <div class="card-title">
+              <i class="ion {{ 'ion-cash' if s.role == 'payer' or s.get('status') == 'paid' else 'ion-card' }}"></i>
+              ₹{{ "%.2f"|format(s.split_amount) }}
+              <span class="role-badge {{ 'payer' if s.role == 'payer' else 'participant' }}">
+                {% if s.role == 'payer' %}
+                  <i class="ion ion-ios-person"></i> You Paid
+                {% elif s.get('status') == 'paid' %}
+                  <i class="ion ion-checkmark"></i> Paid
+                {% else %}
+                  <i class="ion ion-alert"></i> You Owe
+                {% endif %}
+              </span>
+            </div>
+            <div>Total: ₹{{ "%.2f"|format(s.amount) }}</div>
+
+            {% if s.role == 'participant' and s.get('status') != 'paid' %}
+              <button class="btn btn-sm btn-primary btn-pay mt-2"
+                      data-bs-toggle="modal"
+                      data-bs-target="#payModal"
+                      data-split-id="{{ s._id }}"
+                      data-split-amount="{{ s.split_amount }}">
+                <i class="ion ion-card"></i> Pay Now
+              </button>
+            {% elif s.role == 'participant' and s.get('status') == 'paid' %}
+              <div class="text-success mt-2">You Paid ₹{{ "%.2f"|format(s.paid_amount) }}</div>
+              {% if s.payment_image %}
+                <img src="{{ url_for('static', filename=s.payment_image.split('static/')[1]) }}"
+                     class="img-fluid rounded mt-2 payment-preview"
+                     onerror="this.src='{{ url_for('static', filename='default-image.png') }}'"
+                     data-bs-toggle="modal"
+                     data-bs-target="#imageModal"
+                     data-img-src="{{ url_for('static', filename=s.payment_image.split('static/')[1]) }}">
+              {% endif %}
+            {% elif s.role == 'payer' %}
+              <small class="text-muted d-block mt-2">Split with: {{ s.participants|join(', ') }}</small>
+            {% endif %}
+
+            <div class="timestamp mt-2">{{ s.timestamp.strftime("%Y-%m-%d %H:%M") }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-center text-muted">No split records found.</p>
+  {% endif %}
+
+  <!-- Pay Modal -->
+  <div class="modal fade" id="payModal" tabindex="-1" aria-labelledby="payModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <form method="POST" enctype="multipart/form-data" id="payForm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="payModalLabel">Mark Payment</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="split_id" id="modalSplitId" />
+            <div class="mb-3">
+              <label for="paid_amount" class="form-label">Amount Paid (₹)</label>
+              <input type="number" step="0.01" min="0" name="paid_amount" id="paidAmount" class="form-control" required />
+            </div>
+            <div class="mb-3">
+              <label for="payment_image" class="form-label">Upload Payment Image</label>
+              <input type="file" name="payment_image" id="paymentImage" accept="image/*" class="form-control" required />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-success">Mark as Paid</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Image Modal -->
+  <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content p-3 text-center">
+        <div class="modal-header">
+          <h5 class="modal-title" id="imageModalLabel">Payment Image</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <img id="previewImage" src="" class="img-fluid rounded" alt="Payment Image Preview" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Payment modal population
+  var payModal = document.getElementById('payModal');
+  payModal.addEventListener('show.bs.modal', function (event) {
+    var button = event.relatedTarget;
+    var splitId = button.getAttribute('data-split-id');
+    var splitAmount = button.getAttribute('data-split-amount');
+    document.getElementById('modalSplitId').value = splitId;
+    document.getElementById('paidAmount').value = parseFloat(splitAmount).toFixed(2);
+    document.getElementById('payForm').action = "/mark_paid/" + splitId;
+  });
+
+  // Image preview modal
+  var imageModal = document.getElementById('imageModal');
+  var previewImage = document.getElementById('previewImage');
+  document.querySelectorAll('img[data-bs-toggle="modal"]').forEach(img => {
+    img.addEventListener('click', () => {
+      previewImage.src = img.getAttribute('data-img-src');
+    });
+  });
+</script>
+</body>
+</html>
