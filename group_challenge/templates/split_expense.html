@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Split Expense</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <link href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: #f8f9fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 15px;
+    }
+    .split-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.07);
+      padding: 2.5rem 2rem;
+      max-width: 480px;
+      width: 100%;
+      transition: box-shadow 0.3s ease;
+    }
+    .split-card:hover {
+      box-shadow: 0 12px 35px rgba(0,0,0,0.1);
+    }
+    h3 {
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+    p.text-muted {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: #6c757d;
+      font-size: 0.95rem;
+    }
+    .form-control {
+      border-radius: 12px;
+      border: 1.3px solid #ddd;
+      padding: 0.5rem 0.75rem;
+      font-size: 1rem;
+      transition: border-color 0.3s ease;
+    }
+    .form-control:focus {
+      border-color: #0d6efd;
+      box-shadow: none;
+    }
+    .btn-primary {
+      border-radius: 12px;
+      font-weight: 600;
+      padding: 0.55rem;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-primary i {
+      font-size: 1.2rem;
+    }
+    .btn-outline-dark {
+      border-radius: 12px;
+      font-weight: 600;
+      width: 100%;
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      padding: 0.5rem;
+    }
+    .message-area {
+      border-radius: 10px;
+      padding: 12px 18px;
+      margin-bottom: 1.5rem;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="split-card shadow-sm">
+    <h3>Split an Expense</h3>
+    <p class="text-muted">Easily split an expense by entering emails and amount.</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-success message-area" role="alert">
+            <i class="ion ion-checkmark-circled"></i> {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" novalidate>
+      <div class="mb-3">
+        <label for="payer_email" class="form-label">Your Email</label>
+        <input
+          type="email"
+          id="payer_email"
+          name="payer_email"
+          class="form-control"
+          placeholder="you@example.com"
+          required
+          autofocus
+        />
+      </div>
+
+      <div class="mb-3">
+        <label for="participant_emails" class="form-label">Participant Emails (comma-separated)</label>
+        <textarea
+          id="participant_emails"
+          name="participant_emails"
+          class="form-control"
+          rows="3"
+          placeholder="friend1@example.com, friend2@example.com"
+          required
+        ></textarea>
+      </div>
+
+      <div class="mb-4">
+        <label for="amount" class="form-label">Total Amount (₹)</label>
+        <input
+          type="number"
+          id="amount"
+          name="amount"
+          step="0.01"
+          class="form-control"
+          placeholder="Enter amount"
+          required
+          min="0.01"
+        />
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100">
+        <i class="ion ion-arrow-swap"></i> Split Expense
+      </button>
+    </form>
+
+    <a href="{{ url_for('my_splits') }}" class="btn btn-outline-dark">
+      <i class="ion ion-ios-list"></i> View My Splits
+    </a>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
